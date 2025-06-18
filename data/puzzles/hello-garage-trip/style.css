@@ -1,0 +1,79 @@
+@font-face {
+	font-family: 'Aramis Italic';
+	font-style: normal;
+	font-weight: normal;
+	src: local('Aramis Italic'), url('aramisi.ttf') format('truetype');
+}
+
+body {
+	background-color: aliceblue;
+	margin: 0;
+	padding: 10px;
+}
+
+article {
+	position: relative;
+	box-sizing: border-box;
+	width: 640px;
+	margin: 0 auto;
+	padding: 20px 30px;
+	box-shadow: 5px 5px 10px 2px lightgray;
+	border: 1px solid rgb(220, 210, 200);
+	background-color: linen;
+	font-size: x-large;
+}
+
+.cursive {
+	font-family: 'Aramis Italic', sans-serif;
+}
+
+.fakecursive {
+	font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+	font-style: italic;
+}
+
+.serif {
+	font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+}
+
+.ctrl {
+	position: absolute;
+	width: 25px;
+	height: 25px;
+	line-height: 25px;
+	border: 1px solid rgb(220, 210, 200);
+
+	background-color: linen;
+
+	&:hover {
+		background-color: rgb(255, 250, 240);
+	}
+
+	&.pressed {
+		background-color: rgb(220, 210, 200);
+	}
+}
+
+#cursive {
+	top: 5px;
+	right: 30px;
+	border-radius: 5px 0 0 5px;
+}
+
+#serif {
+	top: 5px;
+	right: 5px;
+	border-radius: 0 5px 5px 0;
+}
+
+p::first-letter {
+	display: block;
+	float: left;
+	font-size: 360%;
+	margin-right: 5px;
+}
+
+p {
+	text-align: justify;
+	line-height: 140%;
+}
