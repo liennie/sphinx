@@ -14,7 +14,7 @@ body {
 }
 
 #clock {
-	width: 1136px;
+	width: 1232px;
 	height: 224px;
 }
 
@@ -214,7 +214,7 @@ body {
 	background-image: url("colon.png");
 	background-position: 50%;
 	background-repeat: no-repeat;
-	width: 32px;
+	width: 64px;
 	height: 224px;
 }
 
