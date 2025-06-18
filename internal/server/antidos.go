@@ -8,18 +8,28 @@ import (
 	"time"
 )
 
-type antidos struct {
-	buckets []*time.Ticker
+type antidosBucket struct {
+	ticker  *time.Ticker
+	tickets chan struct{}
 }
 
-func newAntidos(buckets int, period time.Duration) *antidos {
-	b := make([]*time.Ticker, buckets)
+type antidos struct {
+	buckets         []antidosBucket
+	tooManyRequests http.Handler
+}
+
+func newAntidos(buckets int, period time.Duration, maxConcurrent int, tooManyRequests http.Handler) *antidos {
+	b := make([]antidosBucket, buckets)
 	for i := 0; i < buckets; i++ {
-		b[i] = time.NewTicker(period)
+		b[i] = antidosBucket{
+			ticker:  time.NewTicker(period),
+			tickets: make(chan struct{}, maxConcurrent),
+		}
 	}
 
 	return &antidos{
-		buckets: b,
+		buckets:         b,
+		tooManyRequests: tooManyRequests,
 	}
 }
 
@@ -32,8 +42,14 @@ func (a *antidos) middleware(next http.Handler) http.Handler {
 			bucket = int(h.Sum64() % uint64(len(a.buckets)))
 		}
 
-		<-a.buckets[bucket].C
+		select {
+		case a.buckets[bucket].tickets <- struct{}{}:
+			<-a.buckets[bucket].ticker.C
+			next.ServeHTTP(w, r)
+			<-a.buckets[bucket].tickets
 
-		next.ServeHTTP(w, r)
+		default:
+			a.tooManyRequests.ServeHTTP(w, r)
+		}
 	})
 }

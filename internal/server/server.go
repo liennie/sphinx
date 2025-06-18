@@ -36,6 +36,9 @@ func New(config Config) *Server {
 	if config.AntidosPeriod == 0 {
 		panic("server: antidosPeriod is required")
 	}
+	if config.AntidosMaxConcurrent == 0 {
+		panic("server: antidosMaxConcurrent is required")
+	}
 	if config.DataDir == "" {
 		panic("server: dataDir is required")
 	}
@@ -43,7 +46,12 @@ func New(config Config) *Server {
 		panic("server: shutdownTimeout is required")
 	}
 
-	anti := newAntidos(config.AntidosBuckets, config.AntidosPeriod)
+	fsys := os.DirFS(filepath.FromSlash(config.DataDir))
+
+	anti := newAntidos(
+		config.AntidosBuckets, config.AntidosPeriod, config.AntidosMaxConcurrent,
+		tooManyRequestsHandler(dataFile(fsys, "static/429.html")),
+	)
 
 	// TODO team middleware
 
@@ -55,8 +63,6 @@ func New(config Config) *Server {
 		slog.Info("registering handler", "src", src, "method", method, "path", path)
 		mux.Handle(method+" "+path, handler)
 	}
-
-	fsys := os.DirFS(filepath.FromSlash(config.DataDir))
 
 	registerHandler("GET", "/", "static/404.html", anti.middleware(notFoundHandler(dataFile(fsys, "static/404.html"))))
 	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon

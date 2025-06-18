@@ -58,3 +58,16 @@ func notFoundHandler(content []byte, ct string) http.Handler {
 		}
 	})
 }
+
+func tooManyRequestsHandler(content []byte, ct string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", ct)
+		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+		w.WriteHeader(http.StatusNotFound)
+		if _, err := w.Write(content); err != nil {
+			log := ctxlog.Get(r.Context())
+			log.Error("failed to write response", "error", err)
+			return
+		}
+	})
+}

@@ -2,5 +2,6 @@ server:
   port: 8080
   antidosBuckets: 100
   antidosPeriod: 200ms
+  antidosMaxConcurrent: 5
   dataDir: data
   shutdownTimeout: 30s
