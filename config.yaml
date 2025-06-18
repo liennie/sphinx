@@ -3,4 +3,4 @@ server:
   antidosBuckets: 100
   antidosPeriod: 200ms
   dataDir: data
-  shutdownTimeout: 1s
+  shutdownTimeout: 30s

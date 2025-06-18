@@ -45,15 +45,21 @@ func New(config Config) *Server {
 
 	anti := newAntidos(config.AntidosBuckets, config.AntidosPeriod)
 
+	// TODO team middleware
+
+	// TODO case insensitive middleware
+
 	mux := http.NewServeMux()
+
+	registerHandler := func(method, path, src string, handler http.Handler) {
+		slog.Info("registering handler", "src", src, "method", method, "path", path)
+		mux.Handle(method+" "+path, handler)
+	}
 
 	fsys := os.DirFS(filepath.FromSlash(config.DataDir))
 
-	slog.Info("registering handler", "path", "/", "src", "static/404.html")
-	mux.Handle("GET /", anti.middleware(notFoundHandler(dataFile(fsys, "static/404.html"))))
-
-	// slog.Info("registering handler", "path", "/favicon.ico", "src", "static/favicon.ico")
-	// mux.Handle("GET /favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico")))
+	registerHandler("GET", "/", "static/404.html", anti.middleware(notFoundHandler(dataFile(fsys, "static/404.html"))))
+	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon
 
 	const puzzlesDir = "puzzles"
 	puzzles, err := fs.ReadDir(fsys, puzzlesDir)
@@ -72,6 +78,14 @@ func New(config Config) *Server {
 			dir += n + "/"
 		}
 
+		type file struct {
+			src         string
+			path        string
+			content     []byte
+			contentType string
+		}
+		files := []file{}
+
 		extMap := map[string]string{}
 		prefix := path.Join(puzzlesDir, puzzle.Name())
 		err := fs.WalkDir(fsys, prefix, func(p string, d fs.DirEntry, err error) error {
@@ -82,8 +96,16 @@ func New(config Config) *Server {
 				return nil
 			}
 
+			content, ct := dataFile(fsys, p)
+
 			name := d.Name()
 			if name == "index.html" {
+				files = append(files, file{
+					src:         p,
+					path:        dir + "{$}",
+					content:     content,
+					contentType: ct,
+				})
 				return nil
 			}
 
@@ -92,16 +114,18 @@ func New(config Config) *Server {
 				return fmt.Errorf("%q is not a subpath of %q", p, prefix+"/")
 			}
 
-			ext := path.Ext(name)
-
 			h := sha256.New()
 			h.Write([]byte(p))
-			ep := base64.RawURLEncoding.EncodeToString(h.Sum(nil)) + ext
-
-			slog.Info("registering handler", "path", dir+ep, "src", p)
-			mux.Handle("GET "+dir+ep, anti.middleware(cachedHandler(dataFile(fsys, p))))
+			ep := base64.RawURLEncoding.EncodeToString(h.Sum(nil)) + path.Ext(name)
 
 			extMap[subPath] = dir + ep
+
+			files = append(files, file{
+				src:         p,
+				path:        dir + ep,
+				content:     content,
+				contentType: ct,
+			})
 
 			return nil
 		})
@@ -109,15 +133,20 @@ func New(config Config) *Server {
 			panic(fmt.Errorf("server: walk puzzles directory: %w", err))
 		}
 
-		index := path.Join(prefix, "index.html")
-		content, ct := dataFile(fsys, index)
+		for _, file := range files {
+			if shouldRemap(file.src) {
+				for orig, new := range extMap {
+					file.content = bytes.ReplaceAll(file.content, []byte(orig), []byte(new))
+				}
+			}
 
-		for orig, new := range extMap {
-			content = bytes.ReplaceAll(content, []byte(orig), []byte(new))
+			handler := cachedHandler(file.content, file.contentType)
+			if shouldLimit(file.src) {
+				handler = anti.middleware(handler)
+			}
+
+			registerHandler("GET", file.path, file.src, handler)
 		}
-
-		slog.Info("registering handler", "path", dir+"{$}", "src", index)
-		mux.Handle("GET "+dir+"{$}", anti.middleware(cachedHandler(content, ct)))
 	}
 
 	handler := http.Handler(mux)
@@ -128,6 +157,15 @@ func New(config Config) *Server {
 		handler:         handler,
 		shutdownTimeout: config.ShutdownTimeout,
 	}
+}
+
+func shouldRemap(file string) bool {
+	ext := path.Ext(file)
+	return ext == ".html" || ext == ".css" || ext == ".js"
+}
+
+func shouldLimit(file string) bool {
+	return strings.HasSuffix(file, "index.html")
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -154,8 +192,8 @@ func (s *Server) Run(ctx context.Context) error {
 	logger.Info("server is shutting down")
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
-	defer stopCancel()
 	shutdownErr := srv.Shutdown(stopCtx)
+	stopCancel()
 
 	<-stopCtx.Done()
 	if errors.Is(stopCtx.Err(), context.DeadlineExceeded) {
