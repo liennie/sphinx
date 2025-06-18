@@ -48,14 +48,12 @@ func New(config Config) *Server {
 
 	fsys := os.DirFS(filepath.FromSlash(config.DataDir))
 
-	anti := newAntidos(
+	antidos := newAntidos(
 		config.AntidosBuckets, config.AntidosPeriod, config.AntidosMaxConcurrent,
 		tooManyRequestsHandler(dataFile(fsys, "static/429.html")),
 	)
 
 	// TODO team middleware
-
-	// TODO case insensitive middleware
 
 	mux := http.NewServeMux()
 
@@ -64,7 +62,7 @@ func New(config Config) *Server {
 		mux.Handle(method+" "+path, handler)
 	}
 
-	registerHandler("GET", "/", "static/404.html", anti.middleware(notFoundHandler(dataFile(fsys, "static/404.html"))))
+	registerHandler("GET", "/", "static/404.html", antidos.middleware(notFoundHandler(dataFile(fsys, "static/404.html"))))
 	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon
 
 	const puzzlesDir = "puzzles"
@@ -72,6 +70,8 @@ func New(config Config) *Server {
 	if err != nil {
 		panic(fmt.Errorf("server: list puzzles directory: %w", err))
 	}
+
+	validPuzzles := make([]string, 0, len(puzzles))
 
 	for _, puzzle := range puzzles {
 		if !puzzle.IsDir() {
@@ -82,6 +82,7 @@ func New(config Config) *Server {
 		dir := "/"
 		if n := puzzle.Name(); n != "index" {
 			dir += n + "/"
+			validPuzzles = append(validPuzzles, puzzle.Name())
 		}
 
 		type file struct {
@@ -148,7 +149,7 @@ func New(config Config) *Server {
 
 			handler := cachedHandler(file.content, file.contentType)
 			if shouldLimit(file.src) {
-				handler = anti.middleware(handler)
+				handler = antidos.middleware(handler)
 			}
 
 			registerHandler("GET", file.path, file.src, handler)
@@ -156,6 +157,7 @@ func New(config Config) *Server {
 	}
 
 	handler := http.Handler(mux)
+	handler = puzzlePathMiddleware(validPuzzles, handler)
 	handler = logMiddleware(handler)
 
 	return &Server{
