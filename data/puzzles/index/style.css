@@ -157,7 +157,7 @@ body {
 	}
 	.ones {
 		.s1 { background-position: -400px -61px;}
-		.s2 { background-position: -480px -71px;}
+		.s2 { background-position: -480px -100px;}
 		.s4 { background-position: -48px -79px;}
 		.s5 { background-position: -128px -69px;}
 	}
@@ -211,11 +211,12 @@ body {
 .colon {
 	display: block;
 	float: left;
-	background-image: url("colon.png");
-	background-position: 50%;
+	background-image: url("clock.png");
+	background-position: -480px 0px;
 	background-repeat: no-repeat;
-	width: 64px;
-	height: 224px;
+	margin: 62px 24px;
+	width: 16px;
+	height: 100px;
 }
 
 #filter {

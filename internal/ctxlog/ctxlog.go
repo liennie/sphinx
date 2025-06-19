@@ -63,3 +63,7 @@ func Close(ctx context.Context, name string, closer io.Closer) error {
 	}
 	return nil
 }
+
+func With(ctx context.Context, kv ...any) context.Context {
+	return Store(ctx, Get(ctx).With(kv...))
+}

@@ -8,7 +8,6 @@ import (
 	"sphinx/internal/ctxlog"
 	"sphinx/internal/db"
 	"sphinx/internal/rec"
-	"sphinx/internal/server"
 	"syscall"
 )
 
@@ -26,10 +25,13 @@ func run(ctx context.Context, config string) (err error) {
 	db.Open(c.DB)
 	defer ctxlog.Close(ctx, "db", db.Closer())
 
-	logger.Info("starting server")
-	srv := server.New(c.Server)
+	for team, progress := range db.All() {
+		// TODO sort by puzzle order
+		// TODO combine all and sort by time
+		logger.Info("team progress", "team", team, "progress", progress)
+	}
 
-	return srv.Run(ctx)
+	return nil
 }
 
 func main() {
@@ -47,8 +49,6 @@ func main() {
 
 	err := run(ctx, config)
 	if err != nil {
-		logger.Error("server stopped unexpectedly", "error", err)
-	} else {
-		logger.Info("server gracefully stopped")
+		logger.Error("stopped unexpectedly", "error", err)
 	}
 }

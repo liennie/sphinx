@@ -20,6 +20,7 @@ article {
 	box-shadow: 5px 5px 10px 2px lightgray;
 	border: 1px solid rgb(220, 210, 200);
 	background-color: linen;
+	color: rgb(10, 10, 42);
 	font-size: x-large;
 }
 
@@ -40,7 +41,6 @@ article {
 	position: absolute;
 	width: 25px;
 	height: 25px;
-	line-height: 25px;
 	border: 1px solid rgb(220, 210, 200);
 
 	background-color: linen;

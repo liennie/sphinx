@@ -3,22 +3,54 @@
 
 <head>
 	<meta charset="UTF-8">
-	<title>Too many requests</title>
+	<title>429: Too Many Requests</title>
 	<style>
+		html {
+			width: 100%;
+			height: 100%;
+		}
+
 		body {
+			display: flex;
+			justify-content: center;
+			align-items: center;
 			text-align: center;
 			font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-			padding: 50px;
+			margin: 0;
+			width: 100%;
+			height: 100%;
+			background-color: seashell;
+			color: maroon;
+		}
+
+		header {
+			position: fixed;
+			top: 50px;
+			left: 50px;
+			font-size: 25px;
+		}
+
+		section {
+			margin-top: -100px;
 		}
 
 		h1 {
-			font-size: 50px;
+			font-size: 70px;
+			margin: 0 0 60px 0;
+		}
+
+		p {
+			font-size: 20px;
 		}
 	</style>
 </head>
 
 <body>
-	<h1>Too many requests</h1>
+	<header>429: Too Many Requests</header>
+	<section>
+		<h1>I say patience.</h1>
+		<p>Wait a minute, how did this happen? We're smarter than this!</p>
+	</section>
 </body>
 
 </html>

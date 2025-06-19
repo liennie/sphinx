@@ -53,7 +53,7 @@ func New(config Config) *Server {
 		tooManyRequestsHandler(dataFile(fsys, "static/429.html")),
 	)
 
-	// TODO team middleware
+	teams := newTeams(dataFile(fsys, "static/team.html"))
 
 	mux := http.NewServeMux()
 
@@ -148,11 +148,17 @@ func New(config Config) *Server {
 			}
 
 			handler := cachedHandler(file.content, file.contentType)
+			if shouldTeam(file.src, puzzle.Name()) {
+				handler = teams.middleware(handler)
+			}
 			if shouldLimit(file.src) {
 				handler = antidos.middleware(handler)
 			}
 
 			registerHandler("GET", file.path, file.src, handler)
+			if shouldTeam(file.src, puzzle.Name()) {
+				registerHandler("POST", file.path, file.src, handler)
+			}
 		}
 	}
 
@@ -174,6 +180,10 @@ func shouldRemap(file string) bool {
 
 func shouldLimit(file string) bool {
 	return strings.HasSuffix(file, "index.html")
+}
+
+func shouldTeam(file, puzzle string) bool {
+	return strings.HasSuffix(file, "index.html") && puzzle != "index"
 }
 
 func (s *Server) Run(ctx context.Context) error {

@@ -5,3 +5,6 @@ server:
   antidosMaxConcurrent: 5
   dataDir: data
   shutdownTimeout: 30s
+
+db:
+  file: db/sphinx.db
