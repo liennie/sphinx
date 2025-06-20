@@ -13,7 +13,7 @@ import (
 
 var setup = false
 
-func Setup(ctx context.Context) context.Context {
+func Setup(ctx context.Context, name string) context.Context {
 	if setup {
 		return Store(ctx, slog.Default())
 	}
@@ -23,7 +23,7 @@ func Setup(ctx context.Context) context.Context {
 		panic(fmt.Errorf("create log dir: %w", err))
 	}
 
-	logFile, err := os.Create(filepath.Join("log", time.Now().Format("2006-01-02-15-04-05.log")))
+	logFile, err := os.Create(filepath.Join("log", name+"-"+time.Now().Format("2006-01-02-15-04-05.log")))
 	if err != nil {
 		panic(fmt.Errorf("create log file: %w", err))
 	}

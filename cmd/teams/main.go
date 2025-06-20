@@ -38,7 +38,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	ctx = ctxlog.Setup(ctx)
+	ctx = ctxlog.Setup(ctx, "teams")
 
 	logger := ctxlog.Get(ctx)
 
