@@ -5,10 +5,11 @@ import (
 )
 
 type Config struct {
-	Port                 int           `yaml:"port"`
-	AntidosBuckets       int           `yaml:"antidosBuckets"`
-	AntidosPeriod        time.Duration `yaml:"antidosPeriod"`
-	AntidosMaxConcurrent int           `yaml:"antidosMaxConcurrent"`
-	DataDir              string        `yaml:"dataDir"`
-	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout"`
+	Port                   int           `yaml:"port"`
+	AntiCheatBuckets       int           `yaml:"antiCheatBuckets"`
+	AntiCheatPeriod        time.Duration `yaml:"antiCheatPeriod"`
+	AntiCheatMaxConcurrent int           `yaml:"antiCheatMaxConcurrent"`
+	DataDir                string        `yaml:"dataDir"`
+	ShutdownTimeout        time.Duration `yaml:"shutdownTimeout"`
+	AdminKey               string        `yaml:"adminKey"` // this is very secure, don't worry
 }

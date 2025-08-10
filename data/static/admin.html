@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Admin Panel</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			margin: 2em;
+		}
+
+		#result {
+			margin-top: 1em;
+		}
+
+		.result-success {
+			color: green;
+		}
+
+		.result-error {
+			color: #b00;
+		}
+
+		.result-neutral {
+			color: #000;
+		}
+
+		button {
+			padding: 0.5em 1em;
+			font-size: 1em;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Admin Panel</h1>
+	<button id="reloadBtn">Reload</button>
+	<div id="result"></div>
+	<script>
+		document.getElementById('reloadBtn').onclick = function () {
+			const resultDiv = document.getElementById('result');
+			resultDiv.textContent = 'Reloading...';
+			resultDiv.className = 'result-neutral';
+			fetch('/admin/reload', { method: 'POST' })
+				.then(async response => {
+					const data = await response.json();
+					if (!response.ok) {
+						resultDiv.textContent = data.error || 'Unknown error';
+						resultDiv.className = 'result-error';
+					} else {
+						resultDiv.textContent = 'Reload successful!';
+						resultDiv.className = 'result-success';
+					}
+				})
+				.catch(err => {
+					resultDiv.textContent = 'Request failed: ' + err;
+					resultDiv.className = 'result-error';
+				});
+		};
+	</script>
+</body>
+
+</html>

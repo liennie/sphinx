@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -22,7 +23,7 @@ import (
 
 type Server struct {
 	addr            string
-	handler         http.Handler
+	handler         *reloadingHandler
 	shutdownTimeout time.Duration
 }
 
@@ -30,14 +31,14 @@ func New(config Config) *Server {
 	if config.Port == 0 {
 		panic("server: port is required")
 	}
-	if config.AntidosBuckets == 0 {
-		panic("server: antidosBuckets is required")
+	if config.AntiCheatBuckets == 0 {
+		panic("server: antiCheatBuckets is required")
 	}
-	if config.AntidosPeriod == 0 {
-		panic("server: antidosPeriod is required")
+	if config.AntiCheatPeriod == 0 {
+		panic("server: antiCheatPeriod is required")
 	}
-	if config.AntidosMaxConcurrent == 0 {
-		panic("server: antidosMaxConcurrent is required")
+	if config.AntiCheatMaxConcurrent == 0 {
+		panic("server: antiCheatMaxConcurrent is required")
 	}
 	if config.DataDir == "" {
 		panic("server: dataDir is required")
@@ -46,15 +47,33 @@ func New(config Config) *Server {
 		panic("server: shutdownTimeout is required")
 	}
 
+	handler := newReloadingHandler(func(r *reloadingHandler) (http.Handler, error) {
+		return newHandler(config, r)
+	})
+
+	return &Server{
+		addr:            fmt.Sprintf("0.0.0.0:%d", config.Port),
+		handler:         handler,
+		shutdownTimeout: config.ShutdownTimeout,
+	}
+}
+
+func newHandler(config Config, rh *reloadingHandler) (http.Handler, error) {
 	fsys := os.DirFS(filepath.FromSlash(config.DataDir))
 
-	antidos := newAntidos(
-		config.AntidosBuckets, config.AntidosPeriod, config.AntidosMaxConcurrent,
+	// middlewares
+	antiCheat := newAntiCheat(
+		config.AntiCheatBuckets, config.AntiCheatPeriod, config.AntiCheatMaxConcurrent,
 		tooManyRequestsHandler(dataFile(fsys, "static/429.html")),
 	)
 
 	teams := newTeams(dataFile(fsys, "static/team.html"))
 
+	notFound := antiCheat.middleware(notFoundHandler(dataFile(fsys, "static/404.html")))
+
+	admin := newAdmin(config.AdminKey, notFound)
+
+	// handlers
 	mux := http.NewServeMux()
 
 	registerHandler := func(method, path, src string, handler http.Handler) {
@@ -62,13 +81,36 @@ func New(config Config) *Server {
 		mux.Handle(method+" "+path, handler)
 	}
 
-	registerHandler("GET", "/", "static/404.html", antidos.middleware(notFoundHandler(dataFile(fsys, "static/404.html"))))
+	// static
+	registerHandler("GET", "/", "static/404.html", notFound)
 	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon
 
+	registerHandler("GET", "/admin/{$}", "static/admin.html", admin.middleware(cachedHandler(dataFile(fsys, "static/admin.html"))))
+	registerHandler("POST", "/admin/reload", "reload()", admin.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		e := json.NewEncoder(w)
+		w.Header().Set("Content-Type", "application/json")
+
+		if err := rh.reload(); err != nil {
+			log := ctxlog.Get(r.Context())
+			log.Error("failed to reload handler", "error", err)
+
+			w.WriteHeader(http.StatusInternalServerError)
+			e.Encode(map[string]string{
+				"error": err.Error(),
+			})
+
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		e.Encode(map[string]string{})
+	})))
+
+	// puzzles
 	const puzzlesDir = "puzzles"
 	puzzles, err := fs.ReadDir(fsys, puzzlesDir)
 	if err != nil {
-		panic(fmt.Errorf("server: list puzzles directory: %w", err))
+		return nil, fmt.Errorf("server: list puzzles directory: %w", err)
 	}
 
 	validPuzzles := make([]string, 0, len(puzzles))
@@ -122,6 +164,7 @@ func New(config Config) *Server {
 			}
 
 			h := sha256.New()
+			h.Write([]byte("VGhpc0lzQVN1cGVyU2VjcmV0U2FsdA"))
 			h.Write([]byte(p))
 			ep := base64.RawURLEncoding.EncodeToString(h.Sum(nil)) + path.Ext(name)
 
@@ -137,7 +180,7 @@ func New(config Config) *Server {
 			return nil
 		})
 		if err != nil {
-			panic(fmt.Errorf("server: walk puzzles directory: %w", err))
+			return nil, fmt.Errorf("server: walk puzzles directory: %w", err)
 		}
 
 		for _, file := range files {
@@ -152,7 +195,7 @@ func New(config Config) *Server {
 				handler = teams.middleware(handler)
 			}
 			if shouldLimit(file.src) {
-				handler = antidos.middleware(handler)
+				handler = antiCheat.middleware(handler)
 			}
 
 			registerHandler("GET", file.path, file.src, handler)
@@ -166,11 +209,7 @@ func New(config Config) *Server {
 	handler = puzzlePathMiddleware(validPuzzles, handler)
 	handler = logMiddleware(handler)
 
-	return &Server{
-		addr:            fmt.Sprintf("0.0.0.0:%d", config.Port),
-		handler:         handler,
-		shutdownTimeout: config.ShutdownTimeout,
-	}
+	return handler, nil
 }
 
 func shouldRemap(file string) bool {

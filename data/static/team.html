@@ -40,6 +40,11 @@
 			margin: 0 0 60px 0;
 		}
 
+		h2 {
+			font-size: 45px;
+			margin: 20px 0;
+		}
+
 		p {
 			font-size: 20px;
 		}
@@ -79,9 +84,18 @@
 			cursor: pointer;
 			margin: 0 10px;
 
-			&:hover {
+			&:hover,
+			&:focus {
 				background-color: white;
 			}
+		}
+
+		input:focus,
+		button:focus,
+		#rules-modal:focus,
+		#rules-accept:focus {
+			outline: 2px solid darkgreen;
+			outline-offset: 1px;
 		}
 
 		.info {
@@ -89,27 +103,102 @@
 			margin-top: 20px;
 		}
 
+		.rules {
+			font-size: 18px;
+			margin-top: 20px;
+			text-align: left;
+		}
+
 		.error {
 			color: red;
 			font-size: 20px;
 		}
+
+		#rules-modal {
+			background: rgba(255, 255, 255, 0.98);
+			z-index: 1000;
+			align-items: center;
+			justify-content: center;
+			border: 2px solid darkgreen;
+			border-radius: 15px;
+			background-color: mintcream;
+			color: darkgreen;
+		}
+
+		#rules-modal>div {
+			background: white;
+			border-radius: 20px;
+			box-shadow: 0 0 30px #888;
+			padding: 40px 30px;
+			max-width: 400px;
+			width: 90vw;
+			text-align: left;
+		}
+
+		#rules-modal h2 {
+			margin-top: 0;
+		}
+
+		#rules-modal ul {
+			font-size: 18px;
+			text-align: left;
+		}
+
+		#rules-modal label {
+			display: block;
+			margin: 30px auto 0 auto;
+			text-align: center;
+		}
+
+		#rules-modal span {
+			display: inline-block;
+			padding: 10px 30px;
+			background: darkgreen;
+			border-radius: 10px;
+			font-size: 20px;
+			cursor: pointer;
+		}
 	</style>
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
-			const buttons = document.querySelectorAll('button');
+			const buttons = document.querySelectorAll('button.team');
 			buttons.forEach(button => {
 				button.addEventListener('click', function () {
 					document.querySelector('input[name="team_name"]').value = this.textContent;
 				});
 			});
+			const rulesModal = document.getElementById('rules-modal');
+			const rulesAccept = document.getElementById('rules-accept');
+			if (rulesModal && rulesAccept && typeof rulesModal.showModal === 'function') {
+				rulesModal.showModal();
+				rulesAccept.onclick = function (e) {
+					e.preventDefault();
+					rulesModal.close();
+				};
+			}
 		});
 	</script>
 </head>
 
 <body>
+	<dialog id="rules-modal">
+		<h2>Rules:</h2>
+		<ul>
+			<li>Teams can be of any size—play solo or with friends!</li>
+			<li>Some puzzles may require you to interact with the real world or your environment.</li>
+			<li>Some puzzles may require you to write your own custom scripts or code.</li>
+			<li>Do not attempt to brute-force answers or endpoints.</li>
+			<li>No DDoS, hacking, or other attacks on the system or other teams.</li>
+			<li>Be respectful to other participants and organizers.</li>
+			<li>Do not share solutions or spoilers with other teams.</li>
+			<li>Have fun and enjoy the challenge!</li>
+		</ul>
+		<button id="rules-accept">Accept</button>
+	</dialog>
+
 	<section>
 		<h1>Enter your team name.</h1>
-		{{ range .Teams }}<button>{{ . }}</button>{{ end }}
+		{{ range .Teams }}<button class="team">{{ . }}</button>{{ end }}
 		<form action="." method="post">
 			<input type="text" name="team_name" placeholder="Team Name" required maxlength="30"><input type="submit" value="Enter">
 		</form>

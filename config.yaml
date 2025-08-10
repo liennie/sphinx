@@ -1,10 +1,11 @@
 server:
   port: 8080
-  antidosBuckets: 100
-  antidosPeriod: 200ms
-  antidosMaxConcurrent: 5
+  antiCheatBuckets: 100
+  antiCheatPeriod: 200ms
+  antiCheatMaxConcurrent: 5
   dataDir: data
   shutdownTimeout: 30s
+  adminKey: VGhpc0lzQVN1cGVyU2VjcmV0S2V5
 
 db:
   file: db/sphinx.db

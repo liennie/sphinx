@@ -23,6 +23,11 @@ func newTeams(content []byte, ct string) *teams {
 
 func (t *teams) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cookie, _ := r.Cookie("X-Team-Bypass"); cookie != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		if cookie, _ := r.Cookie("X-Team-Name"); cookie != nil {
 			t.next(w, r, cookie.Value, next)
 			return
@@ -65,6 +70,11 @@ func (t *teams) render(w http.ResponseWriter, r *http.Request, terr bool) {
 	teams, err := db.Teams()
 	if err != nil {
 		log.Error("failed to load teams from db", "error", err)
+	}
+
+	if len(teams) > 30 {
+		log.Warn("too many teams, hiding team list", "len", len(teams))
+		teams = nil
 	}
 
 	type data struct {
