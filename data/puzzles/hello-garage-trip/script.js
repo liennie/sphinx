@@ -1,14 +1,8 @@
-function changeFont(font) {
-	article = document.querySelector("article");
-
-	for (ctrl of document.querySelectorAll(".ctrl")) {
-		if (ctrl.id == font) {
-			ctrl.classList.add("pressed");
-		} else {
-			ctrl.classList.remove("pressed");
-			article.classList.remove(ctrl.id)
-		}
-	}
-
-	article.classList.add(font);
-}
+document.addEventListener('DOMContentLoaded', function () {
+	const links = document.querySelectorAll('a');
+	links.forEach(function (link) {
+		link.addEventListener('click', function (e) {
+			e.preventDefault();
+		});
+	});
+});

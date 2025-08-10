@@ -145,9 +145,13 @@ func newHandler(config Config, rh *reloadingHandler) (http.Handler, error) {
 				return nil
 			}
 
+			name := d.Name()
+			if strings.HasPrefix(name, "!") {
+				return nil
+			}
+
 			content, ct := dataFile(fsys, p)
 
-			name := d.Name()
 			if name == "index.html" {
 				files = append(files, file{
 					src:         p,
