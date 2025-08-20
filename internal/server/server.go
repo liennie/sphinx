@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -86,25 +85,9 @@ func newHandler(config Config, rh *reloadingHandler) (http.Handler, error) {
 	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon
 
 	registerHandler("GET", "/admin/{$}", "static/admin.html", admin.middleware(cachedHandler(dataFile(fsys, "static/admin.html"))))
-	registerHandler("POST", "/admin/reload", "reload()", admin.middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		e := json.NewEncoder(w)
-		w.Header().Set("Content-Type", "application/json")
-
-		if err := rh.reload(); err != nil {
-			log := ctxlog.Get(r.Context())
-			log.Error("failed to reload handler", "error", err)
-
-			w.WriteHeader(http.StatusInternalServerError)
-			e.Encode(map[string]string{
-				"error": err.Error(),
-			})
-
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		e.Encode(map[string]string{})
-	})))
+	registerHandler("POST", "/admin/reload", "reload()", admin.middleware(reloadHandler(rh)))
+	registerHandler("GET", "/admin/teams/progress", "progress()", admin.middleware(progressHandler(config.PuzzleOrder)))
+	registerHandler("POST", "/admin/teams/hide", "hideTeam()", admin.middleware(http.HandlerFunc(hideTeamHandler)))
 
 	// puzzles
 	const puzzlesDir = "puzzles"

@@ -30,14 +30,301 @@
 			padding: 0.5em 1em;
 			font-size: 1em;
 		}
+
+		canvas {
+			margin-top: 1em;
+			background: #fff;
+			border: 1px solid #ddd;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 1em;
+		}
+
+		th,
+		td {
+			padding: 0.75em;
+			text-align: left;
+			border: 1px solid #ddd;
+		}
+
+		th {
+			background-color: #f4f4f4;
+		}
+
+		.hidden-row {
+			display: none;
+		}
+
+		.team-toggle {
+			margin: 6px;
+			padding: 10px 24px;
+			border-radius: 12px;
+			border: 2px solid;
+			cursor: pointer;
+			font-weight: bold;
+			display: inline-block;
+			text-align: center;
+			width: auto;
+		}
+
+		.team-toggle.hidden {
+			border-color: #b00;
+			background: #f8d7da;
+			color: #b00;
+		}
+
+		.team-toggle:not(.hidden) {
+			border-color: #228B22;
+			background: #e6ffe6;
+			color: #228B22;
+		}
 	</style>
 </head>
 
 <body>
 	<h1>Admin Panel</h1>
-	<button id="reloadBtn">Reload</button>
+	<h2>Handler</h2>
+	<button id="reloadBtn">Reload handler</button>
 	<div id="result"></div>
+	<h2>Team Visibility</h2>
+	<div id="teamButtons"></div>
+	<div id="teamError" class="result-error"></div>
+	<h2>Team Progress</h2>
+	<canvas id="progressChart" width="900" height="500" style="margin-top:1em; background:#fff; border:1px solid #ddd;"></canvas>
+	<div id="progressError" class="result-error"></div>
 	<script>
+		function renderProgress(data) {
+			const canvas = document.getElementById('progressChart');
+			const errorDiv = document.getElementById('progressError');
+			errorDiv.textContent = '';
+			if (!canvas || !data || !data.order || !data.teams) {
+				errorDiv.textContent = 'Invalid progress data';
+				return;
+			}
+			const ctx = canvas.getContext('2d');
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			const puzzles = data.order;
+			const teams = Object.keys(data.teams);
+			// Gather all timestamps and puzzle progress for sorting
+			let timestamps = [];
+			const teamPuzzleTimes = {};
+			let teamProgress = [];
+			for (const team of teams) {
+				if (data.teams[team].hidden) continue; // Skip hidden teams
+				teamPuzzleTimes[team] = [];
+				let furthestPuzzleIdx = -1;
+				let furthestPuzzleTime = null;
+				for (let pi = 0; pi < puzzles.length; ++pi) {
+					const puzzle = puzzles[pi];
+					const info = data.teams[team].puzzles[puzzle];
+					if (info && info.first_opened) {
+						const ts = Date.parse(info.first_opened);
+						timestamps.push(ts);
+						teamPuzzleTimes[team].push({ puzzle, ts, label: info.first_opened.replace('T', ' ').split('.')[0] });
+						furthestPuzzleIdx = pi;
+						furthestPuzzleTime = ts;
+					}
+				}
+				teamProgress.push({ team, furthestPuzzleIdx, furthestPuzzleTime });
+			}
+			if (timestamps.length === 0) {
+				errorDiv.textContent = 'No progress yet';
+				return;
+			}
+			const minTime = Math.min(...timestamps);
+			const maxTime = Math.max(...timestamps);
+			// Sort teams: furthest puzzle (descending), then fastest time (ascending)
+			teamProgress.sort((a, b) => {
+				if (b.furthestPuzzleIdx !== a.furthestPuzzleIdx) return b.furthestPuzzleIdx - a.furthestPuzzleIdx;
+				if (a.furthestPuzzleTime === null && b.furthestPuzzleTime === null) return 0;
+				if (a.furthestPuzzleTime === null) return 1;
+				if (b.furthestPuzzleTime === null) return -1;
+				return a.furthestPuzzleTime - b.furthestPuzzleTime;
+			});
+			const sortedTeams = teamProgress.map(tp => tp.team);
+			// Chart layout
+			ctx.font = '20px Arial';
+			const teamNameWidths = sortedTeams.map(name => ctx.measureText(name).width);
+			const maxTeamNameWidth = Math.max(...teamNameWidths);
+			const leftPad = Math.max(160, Math.ceil(maxTeamNameWidth + 32));
+			const topPad = 30;
+			const chartH = 60, circleR = 9;
+			const axisPad = 60;
+			const circleTextSpace = circleR + 6 + 14 + 22;
+			canvas.width = 1400;
+			canvas.height = topPad + sortedTeams.length * chartH + axisPad + circleTextSpace + 20;
+			// Draw team names
+			ctx.font = '20px Arial';
+			ctx.textAlign = 'right';
+			ctx.textBaseline = 'middle';
+			for (let i = 0; i < sortedTeams.length; ++i) {
+				const y = topPad + i * chartH + chartH / 2;
+				ctx.fillStyle = '#333';
+				ctx.fillText(sortedTeams[i], leftPad - 16, y);
+			}
+			// Draw time axis
+			const axisY = topPad + sortedTeams.length * chartH + 30;
+			ctx.strokeStyle = '#888';
+			ctx.lineWidth = 2;
+			ctx.beginPath();
+			ctx.moveTo(leftPad, axisY);
+			ctx.lineTo(canvas.width - 60, axisY);
+			ctx.stroke();
+			// Draw time ticks and angled text
+			ctx.font = '16px Arial';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'top';
+			const tickCount = 19;
+			for (let k = 0; k <= tickCount; ++k) {
+				const ratio = k / tickCount;
+				const ts = minTime + ratio * (maxTime - minTime);
+				const x = leftPad + ratio * (canvas.width - leftPad - 80);
+				const date = new Date(ts);
+				const label = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+				ctx.fillStyle = '#333';
+				ctx.beginPath();
+				ctx.arc(x, axisY, 4, 0, 2 * Math.PI);
+				ctx.fill();
+				ctx.save();
+				ctx.translate(x, axisY + 10);
+				ctx.rotate(-Math.PI / 4);
+				ctx.textAlign = 'right';
+				ctx.textBaseline = 'middle';
+				ctx.font = '14px Arial';
+				ctx.fillText(label, 0, 0);
+				ctx.restore();
+			}
+			// Draw team lines and circles, and store circle info for hover
+			const circleInfos = [];
+			for (let i = 0; i < sortedTeams.length; ++i) {
+				const arr = teamPuzzleTimes[sortedTeams[i]].sort((a, b) => a.ts - b.ts);
+				if (arr.length === 0) continue;
+				const y = topPad + i * chartH + chartH / 2;
+				// Draw line from leftPad to last puzzle
+				const xStart = leftPad;
+				const xEnd = leftPad + ((arr[arr.length - 1].ts - minTime) / (maxTime - minTime)) * (canvas.width - leftPad - 80);
+				ctx.strokeStyle = '#228B22';
+				ctx.lineWidth = 3;
+				ctx.beginPath();
+				ctx.moveTo(xStart, y);
+				ctx.lineTo(xEnd, y);
+				ctx.stroke();
+				for (let j = 0; j < arr.length; ++j) {
+					let x;
+					if (sortedTeams.length === 1 && arr.length === 1) {
+						x = leftPad; // Only for single team, single puzzle
+					} else {
+						const ratio = (arr[j].ts - minTime) / (maxTime - minTime);
+						x = leftPad + ratio * (canvas.width - leftPad - 80);
+					}
+					ctx.beginPath();
+					ctx.arc(x, y, circleR, 0, 2 * Math.PI);
+					ctx.fillStyle = '#cfc';
+					ctx.fill();
+					ctx.strokeStyle = '#228B22';
+					ctx.lineWidth = 2;
+					ctx.stroke();
+					ctx.fillStyle = '#222';
+					ctx.font = 'bold 15px Arial';
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+					const puzzleIdx = puzzles.indexOf(arr[j].puzzle);
+					ctx.fillText(puzzleIdx + 1, x, y);
+					// Store info for hover
+					circleInfos.push({ x, y, r: circleR, puzzle: arr[j].puzzle, label: arr[j].label, team: sortedTeams[i] });
+				}
+			}
+			// Tooltip rendering
+			let tooltipDiv = document.getElementById('progressTooltip');
+			if (!tooltipDiv) {
+				tooltipDiv = document.createElement('div');
+				tooltipDiv.id = 'progressTooltip';
+				document.body.appendChild(tooltipDiv);
+			}
+			tooltipDiv.style.position = 'absolute';
+			tooltipDiv.style.pointerEvents = 'none';
+			tooltipDiv.style.background = '#fff';
+			tooltipDiv.style.border = '1px solid #888';
+			tooltipDiv.style.borderRadius = '8px';
+			tooltipDiv.style.padding = '8px 14px';
+			tooltipDiv.style.font = '14px Arial';
+			tooltipDiv.style.color = '#222';
+			tooltipDiv.style.boxShadow = '0 2px 8px #aaa';
+			tooltipDiv.style.display = 'none';
+			canvas.onmousemove = function (e) {
+				const rect = canvas.getBoundingClientRect();
+				const mx = e.clientX - rect.left;
+				const my = e.clientY - rect.top;
+				let found = null;
+				for (const info of circleInfos) {
+					const dx = mx - info.x;
+					const dy = my - info.y;
+					if (dx * dx + dy * dy <= info.r * info.r) {
+						found = info;
+						break;
+					}
+				}
+				if (found) {
+					const scrollY = window.scrollY || document.documentElement.scrollTop;
+					const scrollX = window.scrollX || document.documentElement.scrollLeft;
+					tooltipDiv.innerHTML = `<b>Team:</b> ${found.team}<br><b>Puzzle:</b> ${found.puzzle}<br><b>Time:</b> ${found.label}`;
+					tooltipDiv.style.left = (e.clientX + 16 + scrollX) + 'px';
+					tooltipDiv.style.top = (e.clientY - 10 + scrollY) + 'px';
+					tooltipDiv.style.display = 'block';
+				} else {
+					tooltipDiv.style.display = 'none';
+				}
+			};
+			canvas.onmouseleave = function () {
+				tooltipDiv.style.display = 'none';
+			};
+		}
+
+		function renderTeamButtons(data) {
+			const container = document.getElementById('teamButtons');
+			let errorDiv = document.getElementById('teamError');
+			errorDiv.textContent = '';
+			if (!data || !data.teams) {
+				container.innerHTML = '<span class="result-error">Invalid team data</span>';
+				return;
+			}
+			const teams = Object.keys(data.teams);
+			let html = '';
+			for (const team of teams) {
+				const hidden = data.teams[team].hidden;
+				html += `<button class="team-toggle${hidden ? ' hidden' : ''}" data-team="${team}" style="margin:6px; padding:10px 24px; border-radius:12px; border:2px solid ${hidden ? '#b00' : '#228B22'}; background:${hidden ? '#f8d7da' : '#e6ffe6'}; color:${hidden ? '#b00' : '#228B22'}; font-weight:bold; cursor:pointer;">${hidden ? '👻' : '👁️'} ${team}</button>`;
+			}
+			container.innerHTML = html;
+			// Add event listeners
+			const buttons = container.querySelectorAll('button.team-toggle');
+			buttons.forEach(btn => {
+				btn.onclick = function () {
+					const team = this.getAttribute('data-team');
+					const hide = this.classList.contains('hidden') ? false : true;
+					errorDiv.textContent = '';
+					fetch('/admin/teams/hide', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ team, hide })
+					})
+						.then(async response => {
+							if (!response.ok) {
+								const data = await response.json();
+								errorDiv.textContent = data.error || 'Unknown error';
+							} else {
+								fetchProgress();
+							}
+						})
+						.catch(err => {
+							errorDiv.textContent = 'Request failed: ' + err;
+						});
+				};
+			});
+		}
+
 		document.getElementById('reloadBtn').onclick = function () {
 			const resultDiv = document.getElementById('result');
 			resultDiv.textContent = 'Reloading...';
@@ -58,6 +345,24 @@
 					resultDiv.className = 'result-error';
 				});
 		};
+
+		function fetchProgress() {
+			fetch('/admin/teams/progress')
+				.then(async response => {
+					if (!response.ok) throw new Error('Failed to fetch progress');
+					const data = await response.json();
+					renderProgress(data);
+					renderTeamButtons(data);
+				})
+				.catch(err => {
+					const errorDiv = document.getElementById('progressError');
+					if (errorDiv) {
+						errorDiv.textContent = `Error: ${err}`;
+					}
+				});
+		}
+
+		document.addEventListener('DOMContentLoaded', fetchProgress);
 	</script>
 </body>
 

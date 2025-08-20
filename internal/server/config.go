@@ -12,4 +12,5 @@ type Config struct {
 	DataDir                string        `yaml:"dataDir"`
 	ShutdownTimeout        time.Duration `yaml:"shutdownTimeout"`
 	AdminKey               string        `yaml:"adminKey"` // this is very secure, don't worry
+	PuzzleOrder            []string      `yaml:"puzzleOrder"`
 }

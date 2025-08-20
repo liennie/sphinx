@@ -82,32 +82,19 @@ func Closer() io.Closer {
 }
 
 func Teams() ([]string, error) {
-	if db == nil {
-		panic("db: not opened")
-	}
-
 	var teams []string
-	err := db.View(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(bucketTeams)
-		if b == nil {
-			return fmt.Errorf("db: teams bucket not found")
+	for team, progress := range All() {
+		if progress.Hidden {
+			continue
 		}
-
-		return b.ForEach(func(k, v []byte) error {
-			teams = append(teams, string(k))
-			return nil
-		})
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("db: get teams: %w", err)
+		teams = append(teams, team)
 	}
-
 	return teams, nil
 }
 
 type TeamProgress struct {
 	Puzzles map[string]PuzzleProgress `json:"puzzles"`
+	Hidden  bool                      `json:"hidden"`
 }
 
 type PuzzleProgress struct {
@@ -121,7 +108,7 @@ func must[T any](v T, err error) T {
 	return v
 }
 
-func AddTeamProgress(team, puzzle string, time time.Time) error {
+func modify(team string, modify func(*TeamProgress, bool) (*TeamProgress, error)) error {
 	if db == nil {
 		panic("db: not opened")
 	}
@@ -132,28 +119,62 @@ func AddTeamProgress(team, puzzle string, time time.Time) error {
 			return fmt.Errorf("db: teams bucket not found")
 		}
 
-		var progress TeamProgress
+		var progress *TeamProgress
+		exists := false
 
 		data := b.Get([]byte(team))
 		if data == nil {
-			progress = TeamProgress{
-				Puzzles: make(map[string]PuzzleProgress, 1),
-			}
+			progress = &TeamProgress{}
 		} else {
 			err := json.Unmarshal(data, &progress)
 			if err != nil {
 				return fmt.Errorf("db: unmarshal team progress for %q: %w", team, err)
 			}
+			exists = true
+		}
+
+		var err error
+		if progress, err = modify(progress, exists); err != nil {
+			return fmt.Errorf("db: modify team progress for %q: %w", team, err)
+		}
+
+		if progress == nil {
+			if !exists {
+				return nil
+			}
+			return b.Delete([]byte(team))
+		}
+		return b.Put([]byte(team), must(json.Marshal(progress)))
+	})
+}
+
+func AddTeamProgress(team, puzzle string, time time.Time) error {
+	return modify(team, func(progress *TeamProgress, _ bool) (*TeamProgress, error) {
+		if progress.Puzzles == nil {
+			progress.Puzzles = make(map[string]PuzzleProgress, 1)
 		}
 
 		if _, exists := progress.Puzzles[puzzle]; exists {
-			return nil
+			return progress, nil
 		}
 
 		progress.Puzzles[puzzle] = PuzzleProgress{
 			FirstOpened: time,
 		}
-		return b.Put([]byte(team), must(json.Marshal(progress)))
+		progress.Hidden = false
+
+		return progress, nil
+	})
+}
+
+func SetTeamHidden(team string, hidden bool) error {
+	return modify(team, func(progress *TeamProgress, exists bool) (*TeamProgress, error) {
+		if !exists {
+			return nil, nil
+		}
+
+		progress.Hidden = hidden
+		return progress, nil
 	})
 }
 

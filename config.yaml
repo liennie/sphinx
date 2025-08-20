@@ -6,6 +6,10 @@ server:
   dataDir: data
   shutdownTimeout: 30s
   adminKey: VGhpc0lzQVN1cGVyU2VjcmV0S2V5
+  puzzleOrder:
+    - hello-garage-trip
+    - tattoo
+    - photos
 
 db:
   file: db/sphinx.db
