@@ -194,6 +194,7 @@ func newHandler(config Config, rh *reloadingHandler) (http.Handler, error) {
 
 	handler := http.Handler(mux)
 	handler = puzzlePathMiddleware(validPuzzles, handler)
+	handler = newRecover(handler, internalServerErrorHandler(dataFile(fsys, "static/500.html")))
 	handler = logMiddleware(handler)
 
 	return handler, nil
