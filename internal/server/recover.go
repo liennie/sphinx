@@ -5,19 +5,19 @@ import (
 	"sphinx/internal/ctxlog"
 )
 
-type rec struct {
+type rech struct {
 	next http.Handler
 	err  http.Handler
 }
 
-func newRecover(next, err http.Handler) *rec {
-	return &rec{
+func newRecover(next, err http.Handler) *rech {
+	return &rech{
 		next: next,
 		err:  err,
 	}
 }
 
-func (rec *rec) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (rec *rech) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			log := ctxlog.Get(r.Context())

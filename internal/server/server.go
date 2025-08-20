@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"sphinx/internal/ctxlog"
+	"sphinx/internal/rec"
 	"strings"
 	"time"
 )
@@ -57,7 +58,9 @@ func New(config Config) *Server {
 	}
 }
 
-func newHandler(config Config, rh *reloadingHandler) (http.Handler, error) {
+func newHandler(config Config, rh *reloadingHandler) (h http.Handler, err error) {
+	defer rec.Error(&err)
+
 	fsys := os.DirFS(filepath.FromSlash(config.DataDir))
 
 	// middlewares
