@@ -34,7 +34,9 @@ func cachedHandler(content []byte, ct string) http.Handler {
 			return
 		}
 
-		w.Header().Set("Content-Type", ct)
+		if ct != "" {
+			w.Header().Set("Content-Type", ct)
+		}
 		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 		w.Header().Set("ETag", etag)
 		w.WriteHeader(http.StatusOK)

@@ -9,7 +9,7 @@ import (
 
 func main() {
 	if len(os.Args) <= 3 {
-		fmt.Println("Usage: decode <string> <target> <seed>")
+		fmt.Println("Usage: encode <string> <target> <seed>")
 		return
 	}
 

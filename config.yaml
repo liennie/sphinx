@@ -8,8 +8,8 @@ server:
   adminKey: VGhpc0lzQVN1cGVyU2VjcmV0S2V5
   puzzleOrder:
     - hello-garage-trip
-    - tattoo
-    - photos
+    - odyssey-tattoo
+    - voyage-photos
 
 db:
   file: db/sphinx.db

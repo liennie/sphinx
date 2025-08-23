@@ -88,9 +88,9 @@ func newHandler(config Config, rh *reloadingHandler) (h http.Handler, err error)
 	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon
 
 	registerHandler("GET", "/admin/{$}", "static/admin.html", admin.middleware(cachedHandler(dataFile(fsys, "static/admin.html"))))
-	registerHandler("POST", "/admin/reload", "reload()", admin.middleware(reloadHandler(rh)))
-	registerHandler("GET", "/admin/teams/progress", "progress()", admin.middleware(progressHandler(config.PuzzleOrder)))
-	registerHandler("POST", "/admin/teams/hide", "hideTeam()", admin.middleware(http.HandlerFunc(hideTeamHandler)))
+	registerHandler("POST", "/admin/reload", "reloadHandler()", admin.middleware(reloadHandler(rh)))
+	registerHandler("GET", "/admin/teams/progress", "progressHandler()", admin.middleware(progressHandler(config.PuzzleOrder)))
+	registerHandler("POST", "/admin/teams/hide", "hideTeamHandler()", admin.middleware(http.HandlerFunc(hideTeamHandler)))
 
 	// puzzles
 	const puzzlesDir = "puzzles"
