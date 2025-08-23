@@ -13,4 +13,5 @@ type Config struct {
 	ShutdownTimeout        time.Duration `yaml:"shutdownTimeout"`
 	AdminKey               string        `yaml:"adminKey"` // this is very secure, don't worry
 	PuzzleOrder            []string      `yaml:"puzzleOrder"`
+	Deadline               time.Time     `yaml:"deadline"`
 }

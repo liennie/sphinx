@@ -25,6 +25,7 @@ type Server struct {
 	addr            string
 	handler         *reloadingHandler
 	shutdownTimeout time.Duration
+	deadline        time.Time
 }
 
 func New(config Config) *Server {
@@ -55,6 +56,7 @@ func New(config Config) *Server {
 		addr:            fmt.Sprintf("0.0.0.0:%d", config.Port),
 		handler:         handler,
 		shutdownTimeout: config.ShutdownTimeout,
+		deadline:        config.Deadline,
 	}
 }
 
@@ -227,6 +229,15 @@ func (s *Server) Run(ctx context.Context) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	if !s.deadline.IsZero() {
+		now := time.Now()
+		logger.Info("deadline set", "deadline", s.deadline, "duration", s.deadline.Sub(now).String())
+
+		var dcancel context.CancelFunc
+		ctx, dcancel = context.WithDeadline(ctx, s.deadline)
+		defer dcancel()
+	}
 
 	serveErrCh := make(chan error, 1)
 	go func() {
