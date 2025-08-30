@@ -29,6 +29,9 @@ type Server struct {
 }
 
 func New(config Config) *Server {
+	if config.Host == "" {
+		config.Host = "0.0.0.0"
+	}
 	if config.Port == 0 {
 		panic("server: port is required")
 	}
@@ -47,13 +50,16 @@ func New(config Config) *Server {
 	if config.ShutdownTimeout == 0 {
 		panic("server: shutdownTimeout is required")
 	}
+	if config.AdminKey == "" {
+		panic("server: adminKey is required")
+	}
 
 	handler := newReloadingHandler(func(r *reloadingHandler) (http.Handler, error) {
 		return newHandler(config, r)
 	})
 
 	return &Server{
-		addr:            fmt.Sprintf("0.0.0.0:%d", config.Port),
+		addr:            fmt.Sprintf("%s:%d", config.Host, config.Port),
 		handler:         handler,
 		shutdownTimeout: config.ShutdownTimeout,
 		deadline:        config.Deadline,
@@ -81,13 +87,34 @@ func newHandler(config Config, rh *reloadingHandler) (h http.Handler, err error)
 	mux := http.NewServeMux()
 
 	registerHandler := func(method, path, src string, handler http.Handler) {
-		slog.Info("registering handler", "src", src, "method", method, "path", path)
+		slog.Info("registering handler", "method", method, "path", path, "src", src)
 		mux.Handle(method+" "+path, handler)
 	}
 
 	// static
 	registerHandler("GET", "/", "static/404.html", notFound)
-	// registerHandler("GET", "/favicon.ico", "static/favicon.ico", cachedHandler(dataFile(fsys, "static/favicon.ico"))) // TODO favicon
+
+	// TODO favicon
+	const wwwDir = "static/www"
+	err = fs.WalkDir(fsys, wwwDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		subPath, ok := strings.CutPrefix(p, wwwDir)
+		if !ok {
+			return fmt.Errorf("%q is not a subpath of %q", p, wwwDir)
+		}
+
+		registerHandler("GET", subPath, p, cachedHandler(dataFile(fsys, p)))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("server: walk www directory: %w", err)
+	}
 
 	registerHandler("GET", "/admin/{$}", "static/admin.html", admin.middleware(cachedHandler(dataFile(fsys, "static/admin.html"))))
 	registerHandler("POST", "/admin/reload", "reloadHandler()", admin.middleware(reloadHandler(rh)))
@@ -200,6 +227,7 @@ func newHandler(config Config, rh *reloadingHandler) (h http.Handler, err error)
 	handler := http.Handler(mux)
 	handler = puzzlePathMiddleware(validPuzzles, handler)
 	handler = newRecover(handler, internalServerErrorHandler(dataFile(fsys, "static/500.html")))
+	handler = robotsMiddleware(handler)
 	handler = logMiddleware(handler)
 
 	return handler, nil

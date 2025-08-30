@@ -5,6 +5,7 @@ import (
 )
 
 type Config struct {
+	Host                   string        `yaml:"host"` // optional, defaults to 0.0.0.0
 	Port                   int           `yaml:"port"`
 	AntiCheatBuckets       int           `yaml:"antiCheatBuckets"`
 	AntiCheatPeriod        time.Duration `yaml:"antiCheatPeriod"`
