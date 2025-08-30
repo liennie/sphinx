@@ -29,9 +29,6 @@ type Server struct {
 }
 
 func New(config Config) *Server {
-	if config.Host == "" {
-		config.Host = "0.0.0.0"
-	}
 	if config.Port == 0 {
 		panic("server: port is required")
 	}
@@ -228,6 +225,7 @@ func newHandler(config Config, rh *reloadingHandler) (h http.Handler, err error)
 	handler = puzzlePathMiddleware(validPuzzles, handler)
 	handler = newRecover(handler, internalServerErrorHandler(dataFile(fsys, "static/500.html")))
 	handler = robotsMiddleware(handler)
+	handler = hostMiddleware(config.Host, handler)
 	handler = logMiddleware(handler)
 
 	return handler, nil
