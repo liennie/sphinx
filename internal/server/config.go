@@ -7,6 +7,9 @@ import (
 type Config struct {
 	Host                   string        `yaml:"host"`
 	Port                   int           `yaml:"port"`
+	TLSCertFile            string        `yaml:"tlsCertFile"`
+	TLSKeyFile             string        `yaml:"tlsKeyFile"`
+	TLSReloadInterval      time.Duration `yaml:"tlsReloadInterval"`
 	AntiCheatBuckets       int           `yaml:"antiCheatBuckets"`
 	AntiCheatPeriod        time.Duration `yaml:"antiCheatPeriod"`
 	AntiCheatMaxConcurrent int           `yaml:"antiCheatMaxConcurrent"`

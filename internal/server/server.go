@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 type Server struct {
 	addr            string
 	handler         *reloadingHandler
+	tlsLoader       *tlsLoader
 	shutdownTimeout time.Duration
 	deadline        time.Time
 }
@@ -55,9 +57,21 @@ func New(config Config) *Server {
 		return newHandler(config, r)
 	})
 
+	var loader *tlsLoader
+	if config.TLSCertFile != "" && config.TLSKeyFile != "" {
+		if config.TLSReloadInterval <= 0 {
+			config.TLSReloadInterval = 24 * time.Hour
+		}
+
+		loader = newTLSLoader(config.TLSCertFile, config.TLSKeyFile, config.TLSReloadInterval)
+	} else if config.TLSCertFile != "" || config.TLSKeyFile != "" {
+		panic("server: both tlsCertFile and tlsKeyFile must be set to enable TLS")
+	}
+
 	return &Server{
 		addr:            fmt.Sprintf("%s:%d", config.Host, config.Port),
 		handler:         handler,
+		tlsLoader:       loader,
 		shutdownTimeout: config.ShutdownTimeout,
 		deadline:        config.Deadline,
 	}
@@ -252,6 +266,12 @@ func (s *Server) Run(ctx context.Context) error {
 		Handler:     s.handler,
 		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
+	if s.tlsLoader != nil {
+		srv.TLSConfig = &tls.Config{
+			GetCertificate: s.tlsLoader.getCertificate,
+		}
+		go s.tlsLoader.reloadLoop(ctx)
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -269,7 +289,11 @@ func (s *Server) Run(ctx context.Context) error {
 	go func() {
 		defer cancel()
 		logger.Info("server is running", "addr", s.addr)
-		serveErrCh <- srv.ListenAndServe()
+		if srv.TLSConfig != nil {
+			serveErrCh <- srv.ListenAndServeTLS("", "")
+		} else {
+			serveErrCh <- srv.ListenAndServe()
+		}
 	}()
 
 	<-ctx.Done()
