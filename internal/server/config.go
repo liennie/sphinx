@@ -10,6 +10,7 @@ type Config struct {
 	TLSCertFile            string        `yaml:"tlsCertFile"`
 	TLSKeyFile             string        `yaml:"tlsKeyFile"`
 	TLSReloadInterval      time.Duration `yaml:"tlsReloadInterval"`
+	HTTPSRedirect          bool          `yaml:"httpsRedirect"`
 	AntiCheatBuckets       int           `yaml:"antiCheatBuckets"`
 	AntiCheatPeriod        time.Duration `yaml:"antiCheatPeriod"`
 	AntiCheatMaxConcurrent int           `yaml:"antiCheatMaxConcurrent"`

@@ -20,12 +20,15 @@ import (
 	"sphinx/internal/rec"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Server struct {
 	addr            string
 	handler         *reloadingHandler
 	tlsLoader       *tlsLoader
+	httpsRedirect   bool
 	shutdownTimeout time.Duration
 	deadline        time.Time
 }
@@ -72,6 +75,7 @@ func New(config Config) *Server {
 		addr:            fmt.Sprintf("%s:%d", config.Host, config.Port),
 		handler:         handler,
 		tlsLoader:       loader,
+		httpsRedirect:   config.HTTPSRedirect,
 		shutdownTimeout: config.ShutdownTimeout,
 		deadline:        config.Deadline,
 	}
@@ -258,37 +262,13 @@ func shouldTeam(file, puzzle string) bool {
 	return strings.HasSuffix(file, "index.html") && puzzle != "index"
 }
 
-func (s *Server) Run(ctx context.Context) error {
+func (s *Server) runServer(ctx context.Context, cancel context.CancelFunc, srv *http.Server) error {
 	logger := ctxlog.Get(ctx)
-
-	srv := &http.Server{
-		Addr:        s.addr,
-		Handler:     s.handler,
-		BaseContext: func(net.Listener) context.Context { return ctx },
-	}
-	if s.tlsLoader != nil {
-		srv.TLSConfig = &tls.Config{
-			GetCertificate: s.tlsLoader.getCertificate,
-		}
-		go s.tlsLoader.reloadLoop(ctx)
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	if !s.deadline.IsZero() {
-		now := time.Now()
-		logger.Info("deadline set", "deadline", s.deadline, "duration", s.deadline.Sub(now).String())
-
-		var dcancel context.CancelFunc
-		ctx, dcancel = context.WithDeadline(ctx, s.deadline)
-		defer dcancel()
-	}
 
 	serveErrCh := make(chan error, 1)
 	go func() {
 		defer cancel()
-		logger.Info("server is running", "addr", s.addr)
+		logger.Info("server is running", "addr", srv.Addr)
 		if srv.TLSConfig != nil {
 			serveErrCh <- srv.ListenAndServeTLS("", "")
 		} else {
@@ -297,8 +277,6 @@ func (s *Server) Run(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
-
-	logger.Info("server is shutting down")
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 	shutdownErr := srv.Shutdown(stopCtx)
@@ -318,4 +296,61 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	return errors.Join(serveErr, shutdownErr)
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	logger := ctxlog.Get(ctx)
+
+	// setup
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if !s.deadline.IsZero() {
+		now := time.Now()
+		logger.Info("deadline set", "deadline", s.deadline, "duration", s.deadline.Sub(now).String())
+
+		var dcancel context.CancelFunc
+		ctx, dcancel = context.WithDeadline(ctx, s.deadline)
+		defer dcancel()
+	}
+
+	group, ctx := errgroup.WithContext(ctx)
+
+	// main server
+	srv := &http.Server{
+		Addr:        s.addr,
+		Handler:     s.handler,
+		BaseContext: func(net.Listener) context.Context { return ctx },
+	}
+	if s.tlsLoader != nil {
+		srv.TLSConfig = &tls.Config{
+			GetCertificate: s.tlsLoader.getCertificate,
+		}
+		go s.tlsLoader.reloadLoop(ctx)
+	}
+	group.Go(func() error {
+		return s.runServer(ctx, cancel, srv)
+	})
+
+	// redirect server
+	if s.httpsRedirect {
+		redirectToHTTPS := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			target := "https://" + r.Host + r.URL.RequestURI()
+			http.Redirect(w, r, target, http.StatusMovedPermanently)
+		})
+		httpsRedirectSrv := &http.Server{
+			Addr:        ":80",
+			Handler:     redirectToHTTPS,
+			BaseContext: func(net.Listener) context.Context { return ctx },
+		}
+		group.Go(func() error {
+			return s.runServer(ctx, cancel, httpsRedirectSrv)
+		})
+	}
+
+	<-ctx.Done()
+
+	logger.Info("server is shutting down")
+
+	return group.Wait()
 }
