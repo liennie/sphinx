@@ -10,7 +10,7 @@
 
 	const updateTime = () => {
 		const now = new Date();
-		const end = new Date('2025-08-23T23:00:00+02:00');
+		const end = new Date('2025-09-20T12:00:00+02:00');
 		let diff = end - now;
 
 		if (diff <= 0) {
