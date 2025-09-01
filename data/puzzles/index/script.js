@@ -1,4 +1,4 @@
-(() => {
+document.addEventListener('DOMContentLoaded', function () {
 	dtl = document.querySelector('#days .tens');
 	dol = document.querySelector('#days .ones');
 	htl = document.querySelector('#hours .tens');
@@ -43,4 +43,4 @@
 	};
 	setInterval(updateTime, 1000);
 	updateTime();
-})();
+});
