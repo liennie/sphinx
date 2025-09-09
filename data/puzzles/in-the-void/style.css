@@ -1,0 +1,115 @@
+@keyframes key-shake {
+	0% { transform: translateX(0) rotate(0deg); }
+	8% { transform: translateX(-5px) rotate(-12deg); }
+	16% { transform: translateX(5px) rotate(4deg); }
+	24% { transform: translateX(-4px) rotate(-8deg); }
+	32% { transform: translateX(4px) rotate(2deg); }
+	40% { transform: translateX(-3px) rotate(-6deg); }
+	48% { transform: translateX(3px) rotate(0deg); }
+	56% { transform: translateX(-2px) rotate(-4deg); }
+	64% { transform: translateX(2px) rotate(-2deg); }
+	72% { transform: translateX(-1px) rotate(-1deg); }
+	80% { transform: translateX(1px) rotate(0deg); }
+	88% { transform: translateX(-1px) rotate(0deg); }
+	100% { transform: translateX(0) rotate(0deg); }
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	min-height: 100vh;
+	background: linear-gradient(135deg, #0a0b0e 0%, #14151a 100%);
+	color: #f5f6fa;
+	font-family: 'Segoe UI', Arial, sans-serif;
+	overflow: hidden;
+}
+
+#background {
+	position: fixed;
+	top: 0; left: 0; right: 0; bottom: 0;
+	z-index: 0;
+}
+
+#container {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 1;
+	text-align: center;
+	pointer-events: none;
+}
+
+#the-end {
+	font-size: 5vw;
+	font-weight: bold;
+	letter-spacing: 0.1em;
+	display: inline-block;
+	transition: transform 0.2s cubic-bezier(.4,2,.6,1);
+	text-shadow: 0 2px 16px #000a;
+	background: radial-gradient(circle at var(--grad-x, 50%) var(--grad-y, 50%), #fff 0%, #888 100%);
+	background-clip: text;
+	-webkit-background-clip: text;
+	color: transparent;
+}
+
+#question-mark {
+	font-size: 5vw;
+	font-weight: bold;
+	letter-spacing: 0.1em;
+	display: inline-block;
+	transition: background 0.2s;
+	background: radial-gradient(circle 10vw at var(--grad-x, 50%) var(--grad-y, 50%), #fff 0%, #00000000 100%);
+	background-clip: text;
+	-webkit-background-clip: text;
+	color: transparent;
+}
+
+ .symbol {
+	position: absolute;
+	transition: background 0.2s;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-size: contain;
+	mask-size: contain;
+	-webkit-mask-position: center;
+	mask-position: center;
+}
+
+.symbol.x {
+	width: 16px;
+	height: 16px;
+	pointer-events: none;
+	background: radial-gradient(circle 200px at var(--grad-x, 50%) var(--grad-y, 50%), #fff 0%, #00000000 100%);
+	-webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g stroke="black" stroke-width="6" stroke-linecap="round"><line x1="10" y1="10" x2="38" y2="38"/><line x1="38" y1="10" x2="10" y2="38"/></g></svg>');
+	mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g stroke="black" stroke-width="6" stroke-linecap="round"><line x1="10" y1="10" x2="38" y2="38"/><line x1="38" y1="10" x2="10" y2="38"/></g></svg>');
+}
+
+.symbol.key {
+	width: 46px;
+	height: 46px;
+	background: radial-gradient(circle 200px at var(--grad-x, 50%) var(--grad-y, 50%), #fff 0%, #00000000 100%);
+	-webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g stroke="white" stroke-width="4" stroke-linecap="round" fill="transparent"><circle cx="14" cy="24" r="7" fill="transparent"/><path d="M21 24 l18 0"/><path d="M35 24 l0 8"/><path d="M39 24 l0 4"/><path d="M25 24 l0 6"/></g><g stroke="white" stroke-width="3" fill="transparent"><path d="M21 24 Q24 20 27 24"/></g></svg>');
+	mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g stroke="white" stroke-width="4" stroke-linecap="round" fill="transparent"><circle cx="14" cy="24" r="7" fill="transparent"/><path d="M21 24 l18 0"/><path d="M35 24 l0 8"/><path d="M39 24 l0 4"/><path d="M25 24 l0 6"/></g><g stroke="white" stroke-width="3" fill="transparent"><path d="M21 24 Q24 20 27 24"/></g></svg>');
+	cursor: pointer;
+}
+
+.symbol.key svg {
+	display: none;
+}
+
+.symbol.key.glowing {
+	filter: blur(0px) drop-shadow(0 0 46px #fff);
+	background: radial-gradient(circle 23px at 50% 50%, #ffc 0%, #ffc8 20%, #ffc0 100%);
+	-webkit-mask-image: none;
+	mask-image: none;
+	cursor: inherit;
+}
+
+.symbol.key.glowing svg {
+	display: block;
+}
+
+.symbol.key.shake {
+	animation: key-shake 0.5s cubic-bezier(.36,.07,.19,.97) 1;
+}
