@@ -83,13 +83,29 @@ document.addEventListener('DOMContentLoaded', function () {
 	// --- Illumination and tilt ---
 	const questionMark = document.getElementById('question-mark');
 	const theEnd = document.getElementById('the-end');
-	let mouse = { x: -1000, y: -1000 };
+	let mouse = { x: 50, y: 50 };
 
 	function updateIllumination(e) {
 		mouse.x = e.clientX;
 		mouse.y = e.clientY;
 	}
 	window.addEventListener('mousemove', updateIllumination);
+	window.addEventListener('touchstart', function (e) {
+		if (e.touches && e.touches.length > 0) {
+			updateIllumination({
+				clientX: e.touches[0].clientX,
+				clientY: e.touches[0].clientY
+			});
+		}
+	});
+	window.addEventListener('touchmove', function (e) {
+		if (e.touches && e.touches.length > 0) {
+			updateIllumination({
+				clientX: e.touches[0].clientX,
+				clientY: e.touches[0].clientY
+			});
+		}
+	});
 
 	// Animate floating symbols and illumination
 	function animate() {
