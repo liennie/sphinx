@@ -23,12 +23,12 @@ func newTeams(content []byte, ct string) *teams {
 
 func (t *teams) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cookie, _ := r.Cookie("X-Team-Bypass"); cookie != nil {
+		if cookie, _ := r.Cookie("Team-Bypass"); cookie != nil {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		if cookie, _ := r.Cookie("X-Team-Name"); cookie != nil {
+		if cookie, _ := r.Cookie("Team-Name"); cookie != nil {
 			t.next(w, r, cookie.Value, next)
 			return
 		}
@@ -47,7 +47,7 @@ func (t *teams) middleware(next http.Handler) http.Handler {
 			}
 
 			http.SetCookie(w, &http.Cookie{
-				Name:    "X-Team-Name",
+				Name:    "Team-Name",
 				Value:   team,
 				Path:    "/",
 				Expires: time.Now().Add(365 * 24 * time.Hour),
