@@ -135,6 +135,7 @@ func newHandler(config Config, rh *reloadingHandler) (h http.Handler, err error)
 	registerHandler("POST", "/admin/reload", "reloadHandler()", admin.middleware(reloadHandler(rh)))
 	registerHandler("GET", "/admin/teams/progress", "progressHandler()", admin.middleware(progressHandler(config.PuzzleOrder)))
 	registerHandler("POST", "/admin/teams/hide", "hideTeamHandler()", admin.middleware(http.HandlerFunc(hideTeamHandler)))
+	registerHandler("POST", "/admin/teams/rename", "renameTeamHandler()", admin.middleware(http.HandlerFunc(renameTeamHandler)))
 
 	// puzzles
 	const puzzlesDir = "puzzles"

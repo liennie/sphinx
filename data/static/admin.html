@@ -54,6 +54,13 @@
 			background-color: #f4f4f4;
 		}
 
+		.pre {
+			background-color: #e0e0e0;
+			white-space: pre;
+			padding: 2px;
+			border-radius: 3px;
+		}
+
 		.hidden-row {
 			display: none;
 		}
@@ -95,6 +102,9 @@
 	<h2>Team Progress</h2>
 	<canvas id="progressChart" width="900" height="500" style="margin-top:1em; background:#fff; border:1px solid #ddd;"></canvas>
 	<div id="progressError" class="result-error"></div>
+	<table id="renames"></table>
+	<table id="newnames"></table>
+	<div id="renameError" class="result-error"></div>
 	<script>
 		function renderProgress(data) {
 			const canvas = document.getElementById('progressChart');
@@ -288,7 +298,7 @@
 			let errorDiv = document.getElementById('teamError');
 			errorDiv.textContent = '';
 			if (!data || !data.teams) {
-				container.innerHTML = '<span class="result-error">Invalid team data</span>';
+				errorDiv.innerHTML = '<span class="result-error">Invalid team data</span>';
 				return;
 			}
 			const teams = Object.keys(data.teams);
@@ -309,6 +319,59 @@
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({ team, hide })
+					})
+						.then(async response => {
+							if (!response.ok) {
+								const data = await response.json();
+								errorDiv.textContent = data.error || 'Unknown error';
+							} else {
+								fetchProgress();
+							}
+						})
+						.catch(err => {
+							errorDiv.textContent = 'Request failed: ' + err;
+						});
+				};
+			});
+		}
+
+		function renderRenames(data) {
+			const renamesTable = document.getElementById('renames');
+			const newnamesTable = document.getElementById('newnames');
+			let errorDiv = document.getElementById('renameError');
+			errorDiv.textContent = '';
+			if (!data || !data.teams || !data.renames) {
+				errorDiv.innerHTML = '<span class="result-error">Invalid team data</span>';
+				return;
+			}
+
+			const renames = Object.keys(data.renames);
+			let html = '<tr><th>Team<th>New name</tr>';
+			for (const team of renames) {
+				const newName = data.renames[team];
+				html += `<tr><td><span class="pre">${team}</span><td><span class="pre">${newName}</span></tr>`;
+			}
+			renamesTable.innerHTML = html;
+
+			const teams = Object.keys(data.teams);
+			html = '<tr><th>Team<th>New name<th>Rename</tr>';
+			let i = 0;
+			for (const team of teams) {
+				html += `<tr><td><span class="pre">${team}</span><td><input type="text" id="rename${i}"><td><button data-team="${team}" data-idx="rename${i}">Rename</button>`;
+			}
+			newnamesTable.innerHTML = html;
+
+			// Add event listeners
+			const buttons = newnamesTable.querySelectorAll('button');
+			buttons.forEach(btn => {
+				btn.onclick = function () {
+					const team = this.getAttribute('data-team');
+					const newName = document.getElementById(this.getAttribute('data-idx')).value;
+					errorDiv.textContent = '';
+					fetch('/admin/teams/rename', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ team, newName })
 					})
 						.then(async response => {
 							if (!response.ok) {
@@ -353,6 +416,7 @@
 					const data = await response.json();
 					renderProgress(data);
 					renderTeamButtons(data);
+					renderRenames(data);
 				})
 				.catch(err => {
 					const errorDiv = document.getElementById('progressError');

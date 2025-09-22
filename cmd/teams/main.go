@@ -25,7 +25,7 @@ func run(ctx context.Context, config string) (err error) {
 	db.Open(c.DB)
 	defer ctxlog.Close(ctx, "db", db.Closer())
 
-	for team, progress := range db.All() {
+	for team, progress := range db.AllTeams() {
 		// TODO sort by puzzle order
 		// TODO combine all and sort by time
 		logger.Info("team progress", "team", team, "progress", progress)

@@ -21,6 +21,20 @@ func newTeams(content []byte, ct string) *teams {
 	}
 }
 
+func validTeamName(team string) bool {
+	if len(team) == 0 || len(team) > 30 {
+		return false
+	}
+
+	if strings.ContainsFunc(team, func(c rune) bool {
+		return c != ' ' && c != '_' && c != '-' && (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9')
+	}) {
+		return false
+	}
+
+	return true
+}
+
 func (t *teams) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if cookie, _ := r.Cookie("Team-Bypass"); cookie != nil {
@@ -28,20 +42,39 @@ func (t *teams) middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if cookie, _ := r.Cookie("Team-Name"); cookie != nil {
-			t.next(w, r, cookie.Value, next)
-			return
+		if cookie, _ := r.Cookie("Team-Name"); cookie != nil && cookie.Value != "" {
+			team := cookie.Value
+			if newName, err := db.TeamRename(team); err != nil {
+				log := ctxlog.Get(r.Context())
+				log.Error("failed to get team rename", "error", err)
+			} else if team != newName {
+				team = newName
+				http.SetCookie(w, &http.Cookie{
+					Name:    "Team-Name",
+					Value:   team,
+					Path:    "/",
+					Expires: time.Now().Add(365 * 24 * time.Hour),
+				})
+			}
+
+			if validTeamName(team) {
+				t.next(w, r, team, next)
+				return
+			}
 		}
 
 		if r.Method == http.MethodPost {
 			team := r.FormValue("team_name")
-			if len(team) == 0 || len(team) > 30 {
-				t.render(w, r, true)
-				return
+			team = strings.TrimSpace(team)
+
+			if newName, err := db.TeamRename(team); err != nil {
+				log := ctxlog.Get(r.Context())
+				log.Error("failed to get team rename", "error", err)
+			} else {
+				team = newName
 			}
-			if strings.ContainsFunc(team, func(c rune) bool {
-				return c != ' ' && c != '_' && c != '-' && (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9')
-			}) {
+
+			if !validTeamName(team) {
 				t.render(w, r, true)
 				return
 			}

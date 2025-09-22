@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	bucketTeams = []byte("teams")
+	bucketTeams   = []byte("teams")
+	bucketRenames = []byte("renames")
 )
 
 var db *bbolt.DB
@@ -43,6 +44,7 @@ func Open(config Config) {
 	err = db.Update(func(tx *bbolt.Tx) error {
 		for _, bucket := range [][]byte{
 			bucketTeams,
+			bucketRenames,
 		} {
 			_, err := tx.CreateBucketIfNotExists(bucket)
 			if err != nil {
@@ -83,7 +85,7 @@ func Closer() io.Closer {
 
 func Teams() ([]string, error) {
 	var teams []string
-	for team, progress := range All() {
+	for team, progress := range AllTeams() {
 		if progress.Hidden {
 			continue
 		}
@@ -178,9 +180,72 @@ func SetTeamHidden(team string, hidden bool) error {
 	})
 }
 
+func RenameTeam(team, newName string) error {
+	if db == nil {
+		panic("db: not opened")
+	}
+
+	return db.Update(func(tx *bbolt.Tx) error {
+		teamBucket := tx.Bucket(bucketTeams)
+		if teamBucket == nil {
+			return fmt.Errorf("db: teams bucket not found")
+		}
+		renamesBucket := tx.Bucket(bucketRenames)
+		if renamesBucket == nil {
+			return fmt.Errorf("db: renames bucket not found")
+		}
+
+		data := teamBucket.Get([]byte(team))
+		if data == nil {
+			return nil
+		}
+
+		if teamBucket.Get([]byte(newName)) != nil {
+			return fmt.Errorf("db: team %s already exists", newName)
+		}
+
+		err := teamBucket.Put([]byte(newName), data)
+		if err != nil {
+			return err
+		}
+
+		err = teamBucket.Delete([]byte(team))
+		if err != nil {
+			return err
+		}
+
+		return renamesBucket.Put([]byte(team), []byte(newName))
+	})
+}
+
+func TeamRename(team string) (string, error) {
+	newName := team
+
+	err := db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketRenames)
+		if b == nil {
+			return fmt.Errorf("db: renames bucket not found")
+		}
+
+		key := []byte(team)
+		for newKey := b.Get(key); newKey != nil; newKey = b.Get(key) {
+			key = newKey
+		}
+		newName = string(key)
+
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return newName, nil
+}
+
 var errStop = fmt.Errorf("stop iteration")
 
-func All() iter.Seq2[string, TeamProgress] {
+func AllTeams() iter.Seq2[string, TeamProgress] {
 	if db == nil {
 		panic("db: not opened")
 	}
@@ -211,6 +276,35 @@ func All() iter.Seq2[string, TeamProgress] {
 				return
 			}
 			panic(fmt.Errorf("db: get all teams: %w", err))
+		}
+	}
+}
+
+func AllRenames() iter.Seq2[string, string] {
+	if db == nil {
+		panic("db: not opened")
+	}
+
+	return func(yield func(string, string) bool) {
+		err := db.View(func(tx *bbolt.Tx) error {
+			b := tx.Bucket(bucketRenames)
+			if b == nil {
+				return fmt.Errorf("db: renames bucket not found")
+			}
+
+			return b.ForEach(func(k, v []byte) error {
+				if !yield(string(k), string(v)) {
+					return errStop
+				}
+				return nil
+			})
+		})
+
+		if err != nil {
+			if errors.Is(err, errStop) {
+				return
+			}
+			panic(fmt.Errorf("db: get all renames: %w", err))
 		}
 	}
 }

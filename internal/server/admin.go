@@ -58,12 +58,14 @@ func progressHandler(order []string) http.Handler {
 		e := json.NewEncoder(w)
 		w.Header().Set("Content-Type", "application/json")
 
-		teams := maps.Collect(db.All())
+		teams := maps.Collect(db.AllTeams())
+		renames := maps.Collect(db.AllRenames())
 
 		w.WriteHeader(http.StatusOK)
 		e.Encode(map[string]any{
-			"order": order,
-			"teams": teams,
+			"order":   order,
+			"teams":   teams,
+			"renames": renames,
 		})
 	})
 }
@@ -93,6 +95,50 @@ func hideTeamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.SetTeamHidden(req.Team, req.Hide); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		e.Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	e.Encode(map[string]string{})
+}
+
+func renameTeamHandler(w http.ResponseWriter, r *http.Request) {
+	e := json.NewEncoder(w)
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		Team    string `json:"team"`
+		NewName string `json:"newName"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		e.Encode(map[string]string{
+			"error": "invalid JSON",
+		})
+		return
+	}
+
+	if req.Team == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		e.Encode(map[string]string{
+			"error": "missing team",
+		})
+		return
+	}
+
+	if req.NewName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		e.Encode(map[string]string{
+			"error": "missing new name",
+		})
+		return
+	}
+
+	if err := db.RenameTeam(req.Team, req.NewName); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		e.Encode(map[string]string{
 			"error": err.Error(),
